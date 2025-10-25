@@ -55,7 +55,7 @@ type Store = {
 
 // ----------------------------- API Service (Flask Integration Points)
 
-const API_BASE = "http://localhost:5000/api";
+const API_BASE = "https://skill-matrix-9fer.onrender.com/api";
 
 const apiService = {
   // TODO: Replace with Flask API endpoint
