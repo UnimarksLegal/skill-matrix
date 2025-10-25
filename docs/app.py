@@ -274,57 +274,57 @@ def delete_department(dept_id):
 
 # ===================== EMPLOYEE ENDPOINTS =====================
 
-@app.route('/api/employees', methods=['POST'])
-def add_employee():
-    """Add new employee to a department"""
-    data = request.json
-    dept_id = data.get('departmentId')
-    name = data.get('name', '').strip()
-    role = data.get('role', '').strip()
+# @app.route('/api/employees', methods=['POST'])
+# def add_employee():
+#     """Add new employee to a department"""
+#     data = request.json
+#     dept_id = data.get('departmentId')
+#     name = data.get('name', '').strip()
+#     role = data.get('role', '').strip()
     
-    if not dept_id or not name:
-        return jsonify({'error': 'Department ID and name are required'}), 400
+#     if not dept_id or not name:
+#         return jsonify({'error': 'Department ID and name are required'}), 400
     
-    connection = get_db_connection()
-    if not connection:
-        return jsonify({'error': 'Database connection failed'}), 500
+#     connection = get_db_connection()
+#     if not connection:
+#         return jsonify({'error': 'Database connection failed'}), 500
     
-    try:
-        cursor = connection.cursor(dictionary=True)
-        emp_id = generate_uuid()
+#     try:
+#         cursor = connection.cursor(dictionary=True)
+#         emp_id = generate_uuid()
         
-        # Insert employee
-        cursor.execute("""
-            INSERT INTO employees (id, department_id, name, role)
-            VALUES (%s, %s, %s, %s)
-        """, (emp_id, dept_id, name, role))
+#         # Insert employee
+#         cursor.execute("""
+#             INSERT INTO employees (id, department_id, name, role)
+#             VALUES (%s, %s, %s, %s)
+#         """, (emp_id, dept_id, name, role))
         
-        # Get all skills for this department
-        cursor.execute("""
-            SELECT id FROM skills WHERE department_id = %s
-        """, (dept_id,))
-        skills = cursor.fetchall()
+#         # Get all skills for this department
+#         cursor.execute("""
+#             SELECT id FROM skills WHERE department_id = %s
+#         """, (dept_id,))
+#         skills = cursor.fetchall()
         
-        # Initialize skill levels to 1 for all skills
-        for skill in skills:
-            cursor.execute("""
-                INSERT INTO skill_levels (employee_id, skill_id, level_value)
-                VALUES (%s, %s, 1)
-            """, (emp_id, skill['id']))
+#         # Initialize skill levels to 1 for all skills
+#         for skill in skills:
+#             cursor.execute("""
+#                 INSERT INTO skill_levels (employee_id, skill_id, level_value)
+#                 VALUES (%s, %s, 1)
+#             """, (emp_id, skill['id']))
         
-        connection.commit()
-        cursor.close()
+#         connection.commit()
+#         cursor.close()
         
-        # Return updated department
-        dept_data = format_department_response(dept_id, connection)
-        connection.close()
+#         # Return updated department
+#         dept_data = format_department_response(dept_id, connection)
+#         connection.close()
         
-        return jsonify(dept_data), 201
+#         return jsonify(dept_data), 201
         
-    except Error as e:
-        connection.rollback()
-        connection.close()
-        return jsonify({'error': str(e)}), 500
+#     except Error as e:
+#         connection.rollback()
+#         connection.close()
+#         return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/employees/<emp_id>', methods=['PUT'])
