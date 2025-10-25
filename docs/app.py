@@ -424,6 +424,8 @@ def delete_employee(emp_id):
 
 @app.route('/api/departments/<string:dept_id>/employees', methods=['POST'])
 def add_employee(dept_id):
+    print(f"✅ Received request to add employee in department {dept_id}")
+    print(f"Request JSON: {request.get_json()}")
     """Add a new employee to a department"""
     data = request.get_json()
     name = data.get("name")
@@ -447,26 +449,17 @@ def add_employee(dept_id):
             """,
             (emp_id, name, role, dept_id)
         )
-        # Optionally insert initial skill levels
-        for skill_name, level in levels.items():
-            cursor.execute(
-                """
-                INSERT INTO employee_skills (employee_id, skill_name, level)
-                VALUES (%s, %s, %s)
-                """,
-                (emp_id, skill_name, level)
-            )
         connection.commit()
+        print(f"✅ Inserted employee {name} ({emp_id}) into DB")
         cursor.close()
-        return jsonify({
-            "id": emp_id,
-            "name": name,
-            "role": role,
-            "levels": levels
-        }), 201
+        connection.close()
+        return jsonify({"id": emp_id, "name": name, "role": role, "levels": levels}), 201
     except Error as e:
+        print(f"❌ Database error: {e}")
         connection.rollback()
+        connection.close()
         return jsonify({"error": str(e)}), 500
+
     finally:
         connection.close()
 
