@@ -422,6 +422,53 @@ def delete_employee(emp_id):
         connection.close()
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/departments/<string:dept_id>/employees', methods=['POST'])
+def add_employee(dept_id):
+    """Add a new employee to a department"""
+    data = request.get_json()
+    name = data.get("name")
+    role = data.get("role")
+    levels = data.get("levels", {})
+
+    if not name:
+        return jsonify({"error": "Employee name required"}), 400
+
+    connection = get_db_connection()
+    if not connection:
+        return jsonify({"error": "Database connection failed"}), 500
+
+    try:
+        cursor = connection.cursor(dictionary=True)
+        emp_id = str(uuid.uuid4())
+        cursor.execute(
+            """
+            INSERT INTO employees (id, name, role, department_id)
+            VALUES (%s, %s, %s, %s)
+            """,
+            (emp_id, name, role, dept_id)
+        )
+        # Optionally insert initial skill levels
+        for skill_name, level in levels.items():
+            cursor.execute(
+                """
+                INSERT INTO employee_skills (employee_id, skill_name, level)
+                VALUES (%s, %s, %s)
+                """,
+                (emp_id, skill_name, level)
+            )
+        connection.commit()
+        cursor.close()
+        return jsonify({
+            "id": emp_id,
+            "name": name,
+            "role": role,
+            "levels": levels
+        }), 201
+    except Error as e:
+        connection.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        connection.close()
 
 # ===================== SKILL ENDPOINTS =====================
 
