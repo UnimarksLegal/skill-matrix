@@ -121,43 +121,36 @@ const apiService = {
 
   // TODO: Replace with Flask API endpoint
   // PUT /api/employees/:empId/skills/:skillName - Update skill level
-  async updateSkillLevel(empId: string, skillName: string, level: Level): Promise<void> {
-    try {
-      await fetch(`${API_BASE}/employees/${empId}/skills/${encodeURIComponent(skillName)}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ level }),
-      });
-    } catch (error) {
-      console.log("API not available, using local state");
-    }
-  },
+async updateSkillLevel(empId: string, skillName: string, level: number | string): Promise<void> {
+  const response = await fetch(`${API_BASE}/skills/level`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ employeeId: empId, skillName, level }),
+  });
+  if (!response.ok) throw Error("Failed to update skill level");
+},
 
   // TODO: Replace with Flask API endpoint
   // POST /api/departments/:deptId/skills - Add new skill to department
-  async addSkill(deptId: string, skillName: string): Promise<void> {
-    try {
-      await fetch(`${API_BASE}/departments/${deptId}/skills`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ skillName }),
-      });
-    } catch (error) {
-      console.log("API not available, using local state");
-    }
-  },
+async addSkill(deptId: string, skillName: string): Promise<void> {
+  const response = await fetch(`${API_BASE}/skills`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ departmentId: deptId, name: skillName }),
+  });
+  if (!response.ok) throw Error("Failed to add skill");
+},
 
   // TODO: Replace with Flask API endpoint
   // DELETE /api/departments/:deptId/skills/:skillName - Remove skill from department
-  async deleteSkill(deptId: string, skillName: string): Promise<void> {
-    try {
-      await fetch(`${API_BASE}/departments/${deptId}/skills/${encodeURIComponent(skillName)}`, {
-        method: "DELETE",
-      });
-    } catch (error) {
-      console.log("API not available, using local state");
-    }
-  },
+async deleteSkill(deptId: string, skillName: string): Promise<void> {
+  const response = await fetch(`${API_BASE}/skills`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ departmentId: deptId, name: skillName }),
+  });
+  if (!response.ok) throw Error("Failed to delete skill");
+},
 
   // TODO: Replace with Flask API endpoint
   // PUT /api/departments/:deptId/target - Update target level for department
