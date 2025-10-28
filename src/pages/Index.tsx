@@ -86,7 +86,7 @@ const apiService = {
 
   // POST /api/employees - Add new employee to department
   async addEmployee(deptId: string, employee: Omit<Employee, "id">): Promise<Store> {
-    const response = await fetch(`${API_BASE}/employees`, {
+    const response = await fetch(`${API_BASE}/departments/${deptId}/employees`, {
       method: "POST",
       headers: getHeaders(),
       body: JSON.stringify({ 
@@ -143,7 +143,7 @@ const apiService = {
 
   // PUT /api/skills/level - Update skill level for an employee
   async updateSkillLevel(empId: string, skillName: string, level: Level): Promise<Store> {
-    const response = await fetch(`${API_BASE}/skills/level`, {
+    const response = await fetch(`${API_BASE}/employees/${empId}/skills/${encodeURIComponent(skillName)}`, {
       method: "PUT",
       headers: getHeaders(),
       body: JSON.stringify({ 
@@ -165,7 +165,7 @@ const apiService = {
 
   // POST /api/skills - Add new skill to department
   async addSkill(deptId: string, skillName: string): Promise<Store> {
-    const response = await fetch(`${API_BASE}/skills`, {
+    const response = await fetch(`${API_BASE}/departments/${deptId}/skills`, {
       method: "POST",
       headers: getHeaders(),
       body: JSON.stringify({ 
@@ -186,7 +186,7 @@ const apiService = {
 
   // DELETE /api/skills - Remove skill from department
   async deleteSkill(deptId: string, skillName: string): Promise<Store> {
-    const response = await fetch(`${API_BASE}/skills`, {
+    const response = await fetch(`${API_BASE}/departments/${deptId}/skills/${encodeURIComponent(skillName)}`, {
       method: "DELETE",
       headers: getHeaders(),
       body: JSON.stringify({ 

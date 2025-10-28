@@ -500,8 +500,8 @@ def delete_employee(emp_id):
 @app.route('/api/departments/<string:dept_id>/employees', methods=['POST'])
 @require_auth
 def add_employee(dept_id):
-    print(f"✅ Received request to add employee in department {dept_id}")
-    print(f"Request JSON: {request.get_json()}")
+    # print(f"✅ Received request to add employee in department {dept_id}")
+    # print(f"Request JSON: {request.get_json()}")
     """Add a new employee to a department"""
     data = request.get_json()
     name = data.get("name")
