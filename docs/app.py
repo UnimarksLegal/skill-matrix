@@ -230,15 +230,18 @@ from flask import g
 
 @app.before_request
 def before_request():
-    g.user = data.get('username')
-    auth_header = request.headers.get('Authorization', '')
-    if auth_header.startswith('Bearer '):
-        token = auth_header.split(' ')[1]
-        try:
-            data = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
-            g.user = data['user']
-        except Exception:
-            pass
+    g.user = None  # default user
+
+    if request.path.startswith('/api/'):
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.split(" ")[1]
+            try:
+                data = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+                g.user = data.get('username')
+            except Exception:
+                g.user = None
+
 # ===================== DEPARTMENT ENDPOINTS =====================
 
 @app.route('/api/departments', methods=['GET'])
