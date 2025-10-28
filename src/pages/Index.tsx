@@ -833,7 +833,6 @@ const Index = () => {
           <Button variant="outline" className="gap-2" onClick={exportCSV}><Download className="h-4 w-4" />CSV</Button>
           <Button variant="outline" className="gap-2" onClick={exportJSON}><Save className="h-4 w-4" />Save JSON</Button>
           <Button variant="outline" className="gap-2" onClick={() => setImportOpen(true)}><Upload className="h-4 w-4" />Import</Button>
-          <Button variant="outline" className="gap-2" onClick={() => navigate("/activity")}> View Activity Log </Button>
           <Button variant="destructive" className="gap-2" onClick={handleLogout}><LogOut className="h-4 w-4" />Logout</Button>
         </div>
       </header>

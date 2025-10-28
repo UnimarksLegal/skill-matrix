@@ -7,7 +7,6 @@ import { auth } from "@/lib/auth";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
-import ActivityLog from "./pages/ActivityLog";
 
 const queryClient = new QueryClient();
 
@@ -33,7 +32,6 @@ const App = () => (
             }
           />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="/activity" element={<ActivityLog />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

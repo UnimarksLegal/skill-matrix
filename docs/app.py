@@ -212,36 +212,6 @@ def logout():
     """Logout endpoint (client handles token removal)"""
     return jsonify({'message': 'Logout successful'}), 200
 
-# ===================== LOG HELPERS ========================
-
-def log_activity(username, action):
-    connection = get_db_connection()
-    if connection:
-        cursor = connection.cursor()
-        cursor.execute(
-            "INSERT INTO activity_logs (username, action) VALUES (%s, %s)",
-            (username, action)
-        )
-        connection.commit()
-        cursor.close()
-        connection.close()
-
-from flask import g
-
-@app.before_request
-def before_request():
-    g.user = None  # default user
-
-    if request.path.startswith('/api/'):
-        auth_header = request.headers.get("Authorization")
-        if auth_header and auth_header.startswith("Bearer "):
-            token = auth_header.split(" ")[1]
-            try:
-                data = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-                g.user = data.get('username')
-            except Exception:
-                g.user = None
-
 # ===================== DEPARTMENT ENDPOINTS =====================
 
 @app.route('/api/departments', methods=['GET'])
@@ -301,8 +271,7 @@ def create_department():
         
         connection.commit()
         cursor.close()
-        #Log
-        log_activity(g.user or "Unknown", f"Added new Department '{name}'")
+
         # Return complete department object
         dept_data = format_department_response(dept_id, connection)
         connection.close()
@@ -351,8 +320,7 @@ def update_department(dept_id):
         cursor.execute(query, params)
         connection.commit()
         cursor.close()
-        #Log
-        log_activity(g.user or "Unknown", f"Updated Department '{name}'")
+
         # Return updated department
         dept_data = format_department_response(dept_id, connection)
         connection.close()
@@ -388,8 +356,7 @@ def delete_department(dept_id):
         connection.commit()
         cursor.close()
         connection.close()
-        #Log
-        log_activity(g.user or "Unknown", "Deleted Department")
+
         return jsonify({'message': 'Department deleted successfully'}), 200
         
     except Error as e:
@@ -445,8 +412,7 @@ def update_employee(emp_id):
         cursor.execute(query, params)
         connection.commit()
         cursor.close()
-        #Log
-        log_activity(g.user or "Unknown", f"Updated Employee '{name}' of '{role}' role")
+
         # Return updated department
         dept_data = format_department_response(dept_id, connection)
         connection.close()
@@ -484,8 +450,7 @@ def delete_employee(emp_id):
         cursor.execute("DELETE FROM employees WHERE id = %s", (emp_id,))
         connection.commit()
         cursor.close()
-        #Log
-        log_activity(g.user or "Unknown", f"Deleted Employee of '{dept_id}'")
+
         # Return updated department
         dept_data = format_department_response(dept_id, connection)
         connection.close()
@@ -525,8 +490,7 @@ def add_employee(dept_id):
             """,
             (emp_id, name, role, dept_id)
         )
-        #Log
-        log_activity(g.user or "Unknown", f"Added Employee '{name}' of '{role}' role in department '{dept_id}'")
+
         connection.commit()
         print(f"✅ Inserted employee {name} ({emp_id}) into DB")
         cursor.close()
@@ -592,8 +556,7 @@ def add_skill():
         
         connection.commit()
         cursor.close()
-        #Log
-        log_activity(g.user or "Unknown", f"Added Skill '{skill_name}'in Department '{dept_id}' ")
+
         # Return updated department
         dept_data = format_department_response(dept_id, connection)
         connection.close()
@@ -632,8 +595,7 @@ def remove_skill():
         
         connection.commit()
         cursor.close()
-        #Log
-        log_activity(g.user or "Unknown", f"Removed Skill '{skill_name}'in Department '{dept_id}' ")
+
         # Return updated department
         dept_data = format_department_response(dept_id, connection)
         connection.close()
@@ -706,8 +668,7 @@ def update_skill_level():
         
         connection.commit()
         cursor.close()
-        #Log
-        log_activity(g.user or "Unknown", f"Updated Skill'{skill_name}' of Employee '{emp_id}' ")
+
         # Return updated department
         dept_data = format_department_response(dept_id, connection)
         connection.close()
