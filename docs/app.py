@@ -23,12 +23,30 @@ from flask_cors import CORS
 import mysql.connector
 from mysql.connector import Error
 import os
-from datetime import datetime
+from dotenv import load_dotenv
+from functools import wraps
+from datetime import datetime, timedelta ,timezone
 import uuid
-
+import jwt
+load_dotenv()
 app = Flask(__name__)
 CORS(app)  # Enable CORS for React frontend
 
+# ===================== CONFIGURATION =====================
+
+# JWT Secret Key - MUST be set in environment variables
+JWT_SECRET = os.getenv('JWT_SECRET_KEY', 'change-this-to-a-random-secret-key-in-production')
+JWT_ALGORITHM = 'HS256'
+JWT_EXP_DELTA_HOURS = 24  # Token expires after 24 hours
+
+# Admin users from environment variable
+# Format: ADMIN_USERS=admin1:pass1,admin2:pass2,manager:super123
+ADMIN_USERS = {}
+admin_users_str = os.getenv('ADMIN_USERS', 'admin:admin123')
+for user_pair in admin_users_str.split(','):
+    if ':' in user_pair:
+        username, password = user_pair.strip().split(':', 1)
+        ADMIN_USERS[username] = password
 # ===================== DATABASE CONNECTION =====================
 
 def get_db_connection():
@@ -51,6 +69,52 @@ def get_db_connection():
 def generate_uuid():
     """Generate unique ID for records"""
     return str(uuid.uuid4())
+
+# ===================== AUTHENTICATION =====================
+
+def create_jwt_token(username):
+    """Generate JWT token for authenticated user"""
+    payload = {
+        'username': username,
+        'exp': datetime.now(timezone.utc) + timedelta(hours=JWT_EXP_DELTA_HOURS),
+        'iat': datetime.now(timezone.utc)
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+def verify_jwt_token(token):
+    """Verify and decode JWT token"""
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        return payload['username']
+    except jwt.ExpiredSignatureError:
+        return None  # Token expired
+    except jwt.InvalidTokenError:
+        return None  # Invalid token
+
+def require_auth(f):
+    """Decorator to require authentication for API endpoints"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        auth_header = request.headers.get('Authorization')
+        
+        if not auth_header:
+            return jsonify({'error': 'No authorization header'}), 401
+        
+        # Extract token from "Bearer <token>" format
+        try:
+            token = auth_header.split(' ')[1]
+        except IndexError:
+            return jsonify({'error': 'Invalid authorization header format'}), 401
+        
+        username = verify_jwt_token(token)
+        if not username:
+            return jsonify({'error': 'Invalid or expired token'}), 401
+        
+        # Attach username to request for use in endpoint
+        request.username = username
+        return f(*args, **kwargs)
+    
+    return decorated_function
 
 def format_department_response(dept_id, connection):
     """
@@ -121,10 +185,64 @@ def format_department_response(dept_id, connection):
         'skills': skills,
         'employees': employees
     }
+@app.route('/api/login', methods=['POST'])
+def login():
+    """Authenticate user and return JWT token"""
+    data = request.json
+    
+    if not data or 'username' not in data or 'password' not in data:
+        return jsonify({'error': 'Missing username or password'}), 400
+    
+    username = data['username']
+    password = data['password']
+    
+    # Check credentials against environment variable
+    if username in ADMIN_USERS and ADMIN_USERS[username] == password:
+        token = create_jwt_token(username)
+        return jsonify({
+            'token': token,
+            'username': username,
+            'message': 'Login successful'
+        }), 200
+    else:
+        return jsonify({'error': 'Invalid credentials'}), 401
 
+@app.route('/api/logout', methods=['POST'])
+def logout():
+    """Logout endpoint (client handles token removal)"""
+    return jsonify({'message': 'Logout successful'}), 200
+
+# ===================== LOG HELPERS ========================
+
+def log_activity(username, action):
+    connection = get_db_connection()
+    if connection:
+        cursor = connection.cursor()
+        cursor.execute(
+            "INSERT INTO activity_logs (username, action) VALUES (%s, %s)",
+            (username, action)
+        )
+        connection.commit()
+        cursor.close()
+        connection.close()
+
+from flask import g
+
+@app.before_request
+def before_request():
+    g.user = data.get('username')
+    auth_header = request.headers.get('Authorization', '')
+    if auth_header.startswith('Bearer '):
+        token = auth_header.split(' ')[1]
+        try:
+            data = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
+            g.user = data['user']
+        except Exception:
+            pass
 # ===================== DEPARTMENT ENDPOINTS =====================
 
 @app.route('/api/departments', methods=['GET'])
+@require_auth
 def get_departments():
     """Fetch all departments with complete data"""
     connection = get_db_connection()
@@ -155,6 +273,7 @@ def get_departments():
 
 
 @app.route('/api/departments', methods=['POST'])
+@require_auth
 def create_department():
     """Create new department"""
     data = request.json
@@ -179,7 +298,8 @@ def create_department():
         
         connection.commit()
         cursor.close()
-        
+        #Log
+        log_activity(g.user or "Unknown", f"Added new Department '{name}'")
         # Return complete department object
         dept_data = format_department_response(dept_id, connection)
         connection.close()
@@ -191,8 +311,8 @@ def create_department():
         connection.close()
         return jsonify({'error': str(e)}), 500
 
-
 @app.route('/api/departments/<dept_id>', methods=['PUT'])
+@require_auth
 def update_department(dept_id):
     """Update department name or target level"""
     data = request.json
@@ -228,7 +348,8 @@ def update_department(dept_id):
         cursor.execute(query, params)
         connection.commit()
         cursor.close()
-        
+        #Log
+        log_activity(g.user or "Unknown", f"Updated Department '{name}'")
         # Return updated department
         dept_data = format_department_response(dept_id, connection)
         connection.close()
@@ -242,6 +363,7 @@ def update_department(dept_id):
 
 
 @app.route('/api/departments/<dept_id>', methods=['DELETE'])
+@require_auth
 def delete_department(dept_id):
     """Delete department (cascades to employees, skills, skill_levels)"""
     connection = get_db_connection()
@@ -263,7 +385,8 @@ def delete_department(dept_id):
         connection.commit()
         cursor.close()
         connection.close()
-        
+        #Log
+        log_activity(g.user or "Unknown", "Deleted Department")
         return jsonify({'message': 'Department deleted successfully'}), 200
         
     except Error as e:
@@ -272,62 +395,8 @@ def delete_department(dept_id):
         return jsonify({'error': str(e)}), 500
 
 
-# ===================== EMPLOYEE ENDPOINTS =====================
-
-# @app.route('/api/employees', methods=['POST'])
-# def add_employee():
-#     """Add new employee to a department"""
-#     data = request.json
-#     dept_id = data.get('departmentId')
-#     name = data.get('name', '').strip()
-#     role = data.get('role', '').strip()
-    
-#     if not dept_id or not name:
-#         return jsonify({'error': 'Department ID and name are required'}), 400
-    
-#     connection = get_db_connection()
-#     if not connection:
-#         return jsonify({'error': 'Database connection failed'}), 500
-    
-#     try:
-#         cursor = connection.cursor(dictionary=True)
-#         emp_id = generate_uuid()
-        
-#         # Insert employee
-#         cursor.execute("""
-#             INSERT INTO employees (id, department_id, name, role)
-#             VALUES (%s, %s, %s, %s)
-#         """, (emp_id, dept_id, name, role))
-        
-#         # Get all skills for this department
-#         cursor.execute("""
-#             SELECT id FROM skills WHERE department_id = %s
-#         """, (dept_id,))
-#         skills = cursor.fetchall()
-        
-#         # Initialize skill levels to 1 for all skills
-#         for skill in skills:
-#             cursor.execute("""
-#                 INSERT INTO skill_levels (employee_id, skill_id, level_value)
-#                 VALUES (%s, %s, 1)
-#             """, (emp_id, skill['id']))
-        
-#         connection.commit()
-#         cursor.close()
-        
-#         # Return updated department
-#         dept_data = format_department_response(dept_id, connection)
-#         connection.close()
-        
-#         return jsonify(dept_data), 201
-        
-#     except Error as e:
-#         connection.rollback()
-#         connection.close()
-#         return jsonify({'error': str(e)}), 500
-
-
 @app.route('/api/employees/<emp_id>', methods=['PUT'])
+@require_auth
 def update_employee(emp_id):
     """Update employee name or role"""
     data = request.json
@@ -373,7 +442,8 @@ def update_employee(emp_id):
         cursor.execute(query, params)
         connection.commit()
         cursor.close()
-        
+        #Log
+        log_activity(g.user or "Unknown", f"Updated Employee '{name}' of '{role}' role")
         # Return updated department
         dept_data = format_department_response(dept_id, connection)
         connection.close()
@@ -387,6 +457,7 @@ def update_employee(emp_id):
 
 
 @app.route('/api/employees/<emp_id>', methods=['DELETE'])
+@require_auth
 def delete_employee(emp_id):
     """Delete employee (cascades to skill_levels)"""
     connection = get_db_connection()
@@ -410,7 +481,8 @@ def delete_employee(emp_id):
         cursor.execute("DELETE FROM employees WHERE id = %s", (emp_id,))
         connection.commit()
         cursor.close()
-        
+        #Log
+        log_activity(g.user or "Unknown", f"Deleted Employee of '{dept_id}'")
         # Return updated department
         dept_data = format_department_response(dept_id, connection)
         connection.close()
@@ -423,6 +495,7 @@ def delete_employee(emp_id):
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/departments/<string:dept_id>/employees', methods=['POST'])
+@require_auth
 def add_employee(dept_id):
     print(f"✅ Received request to add employee in department {dept_id}")
     print(f"Request JSON: {request.get_json()}")
@@ -449,6 +522,8 @@ def add_employee(dept_id):
             """,
             (emp_id, name, role, dept_id)
         )
+        #Log
+        log_activity(g.user or "Unknown", f"Added Employee '{name}' of '{role}' role in department '{dept_id}'")
         connection.commit()
         print(f"✅ Inserted employee {name} ({emp_id}) into DB")
         cursor.close()
@@ -458,6 +533,7 @@ def add_employee(dept_id):
         print(f"❌ Database error: {e}")
         connection.rollback()
         connection.close()
+
         return jsonify({"error": str(e)}), 500
 
     finally:
@@ -466,6 +542,7 @@ def add_employee(dept_id):
 # ===================== SKILL ENDPOINTS =====================
 
 @app.route('/api/skills', methods=['POST'])
+@require_auth
 def add_skill():
     """Add new skill to department"""
     data = request.json
@@ -512,7 +589,8 @@ def add_skill():
         
         connection.commit()
         cursor.close()
-        
+        #Log
+        log_activity(g.user or "Unknown", f"Added Skill '{skill_name}'in Department '{dept_id}' ")
         # Return updated department
         dept_data = format_department_response(dept_id, connection)
         connection.close()
@@ -526,6 +604,7 @@ def add_skill():
 
 
 @app.route('/api/skills', methods=['DELETE'])
+@require_auth
 def remove_skill():
     """Remove skill from department"""
     data = request.json
@@ -550,7 +629,8 @@ def remove_skill():
         
         connection.commit()
         cursor.close()
-        
+        #Log
+        log_activity(g.user or "Unknown", f"Removed Skill '{skill_name}'in Department '{dept_id}' ")
         # Return updated department
         dept_data = format_department_response(dept_id, connection)
         connection.close()
@@ -564,6 +644,7 @@ def remove_skill():
 
 
 @app.route('/api/skills/level', methods=['PUT'])
+@require_auth
 def update_skill_level():
     """Update skill level for an employee"""
     data = request.json
@@ -622,7 +703,8 @@ def update_skill_level():
         
         connection.commit()
         cursor.close()
-        
+        #Log
+        log_activity(g.user or "Unknown", f"Updated Skill'{skill_name}' of Employee '{emp_id}' ")
         # Return updated department
         dept_data = format_department_response(dept_id, connection)
         connection.close()
@@ -634,10 +716,22 @@ def update_skill_level():
         connection.close()
         return jsonify({'error': str(e)}), 500
 
+# ===================== LOG RETRIEVER =====================
+@app.route('/api/activity', methods=['GET'])
+@require_auth
+def get_activity_logs():
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM activity_logs ORDER BY timestamp DESC LIMIT 100")
+    logs = cursor.fetchall()
+    cursor.close()
+    connection.close()
+    return jsonify(logs)
 
 # ===================== HEALTH CHECK =====================
 
 @app.route('/api/health', methods=['GET'])
+@require_auth
 def health_check():
     """Health check endpoint"""
     connection = get_db_connection()
@@ -652,7 +746,6 @@ def health_check():
             'status': 'unhealthy',
             'database': 'disconnected'
         }), 503
-
 
 # ===================== ERROR HANDLERS =====================
 
