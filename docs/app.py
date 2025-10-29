@@ -423,53 +423,56 @@ def add_skill():
     data = request.json
     dept_id = data.get('departmentId')
     skill_name = data.get('name', '').strip()
-    
+
     if not dept_id or not skill_name:
         return jsonify({'error': 'Department ID and skill name are required'}), 400
-    
+
     connection = get_db_connection()
     if not connection:
         return jsonify({'error': 'Database connection failed'}), 500
-    
+
     try:
         cursor = connection.cursor(dictionary=True)
-        
+
         # Get max display order
         cursor.execute("""
             SELECT COALESCE(MAX(display_order), 0) as max_order
             FROM skills WHERE department_id = %s
         """, (dept_id,))
         max_order = cursor.fetchone()['max_order']
-        
-        
-        # Insert skill
+
+        # Generate new skill ID
+        skill_id = str(uuid4())
+
+        # ✅ Correct insert with all 4 values
         cursor.execute("""
             INSERT INTO skills (id, department_id, name, display_order)
             VALUES (%s, %s, %s, %s)
-        """, ( dept_id, skill_name, max_order + 1))
-        
+        """, (skill_id, dept_id, skill_name, max_order + 1))
+
         # Get all employees in this department
         cursor.execute("""
             SELECT id FROM employees WHERE department_id = %s
         """, (dept_id,))
         employees = cursor.fetchall()
-        
+
         # Initialize skill level to 1 for all employees
         for emp in employees:
             cursor.execute("""
                 INSERT INTO skill_levels (employee_id, skill_id, level_value)
                 VALUES (%s, %s, 1)
-            """, (emp['id']))
-        
-        connection.commit()
-        cursor.close()
+            """, (emp['id'], skill_id))
 
-        # Return updated department
+        connection.commit()
+
+        # ✅ Important: call format_department_response *before closing connection*
         dept_data = format_department_response(dept_id, connection)
+
+        cursor.close()
         connection.close()
-        
+
         return jsonify(dept_data), 201
-        
+
     except Error as e:
         connection.rollback()
         connection.close()
