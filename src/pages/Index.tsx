@@ -604,25 +604,31 @@ const Index = () => {
   }
 
   async function addEmployee() {
-    const name = empDraft.name.trim();
-    if (!name) return;
+  const name = empDraft.name.trim();
+  if (!name) return;
+
+  const levels: Record<string, Level> = {};
+  dept.skills.forEach((s) => (levels[s] = 1));
+
+  try {
+    // Get the updated department from backend
+    const updatedDept = await apiService.addEmployee(dept.id, {
+      name,
+      role: empDraft.role.trim(),
+      levels,
+    });
+
+    // ✅ Update just this department in the store
     
-    const levels: Record<string, Level> = {};
-    dept.skills.forEach((s) => (levels[s] = 1));
-    
-    try {
-      const updatedStore = await apiService.addEmployee(dept.id, {
-        name,
-        role: empDraft.role.trim(),
-        levels,
-      });
-      setStore(updatedStore);
-      setEmpDraft({ name: "", role: "" });
-      setAddEmpOpen(false);
-    } catch (error) {
-      console.error("Failed to add employee:", error);
-    }
+
+    // Reset form and close dialog
+    setEmpDraft({ name: "", role: "" });
+    setAddEmpOpen(false);
+  } catch (error) {
+    console.error("Failed to add employee:", error);
   }
+}
+
 
   async function removeEmployee(id: string) {
     try {

@@ -467,7 +467,8 @@ def add_employee(dept_id):
     """Add a new employee to a department"""
     data = request.get_json()
     name = data.get("name")
-    role = data.get("role")
+    role = data.get("role", "")
+    levels = data.get("levels", {})
 
     if not name:
         return jsonify({"error": "Employee name required"}), 400
@@ -485,28 +486,28 @@ def add_employee(dept_id):
             VALUES (%s, %s, %s, %s)
         """, (emp_id, name, role, dept_id))
 
-        # Initialize all skills at level 1 for new employee
+        # Add all department skills at default level 1
         cursor.execute("SELECT id FROM skills WHERE department_id = %s", (dept_id,))
-        for skill in cursor.fetchall():
+        skills = cursor.fetchall()
+        for skill in skills:
             cursor.execute("""
                 INSERT INTO skill_levels (employee_id, skill_id, level_value)
                 VALUES (%s, %s, 1)
             """, (emp_id, skill['id']))
 
         connection.commit()
-
-        # Fetch updated department data
-        dept_data = format_department_response(dept_id, connection)
-
         cursor.close()
+
+        # ✅ Return the FULL department data (with all employees + skills)
+        dept_data = format_department_response(dept_id, connection)
         connection.close()
         return jsonify(dept_data), 201
 
     except Error as e:
         connection.rollback()
         connection.close()
-        print(f"❌ Database error: {e}")
         return jsonify({"error": str(e)}), 500
+
 
 
 # ===================== SKILL ENDPOINTS =====================
