@@ -10,9 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Building2, Download, Edit2, LogOut, Plus, Save, Settings2, Trash2, Upload, UserPlus, Users } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-import { auth } from "@/lib/auth";
+import { Building2, Download, Edit2, Plus, Save, Settings2, Trash2, Upload, UserPlus, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 /**
@@ -60,92 +58,65 @@ type Store = {
 
 const API_BASE = "https://skill-matrix-9fer.onrender.com/api";
 
-
-// Helper function to get auth headers
-const getHeaders = () => ({
-  "Content-Type": "application/json",
-  ...auth.getAuthHeader(),
-});
-
 const apiService = {
   // GET /api/departments - Fetch all departments with employees and skills
   async fetchDepartments(): Promise<Store> {
     const response = await fetch(`${API_BASE}/departments`, {
-      headers: getHeaders(),
+      headers: { "Content-Type": "application/json" },
     });
     if (!response.ok) {
-      if (response.status === 401) {
-        auth.clearAuth();
-        window.location.href = "/login";
-        throw new Error("Unauthorized");
-      }
       throw new Error("Failed to fetch departments");
     }
     return await response.json();
   },
 
-  // POST /api/employees - Add new employee to department
-  async addEmployee(deptId: string, employee: Omit<Employee, "id">): Promise<Store> {
+  // POST /api/departments/<dept_id>/employees - Add new employee to department
+  async addEmployee(deptId: string, employee: Omit<Employee, "id">): Promise<Department> {
     const response = await fetch(`${API_BASE}/departments/${deptId}/employees`, {
       method: "POST",
-      headers: getHeaders(),
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ 
-        departmentId: deptId, 
         name: employee.name, 
-        role: employee.role 
+        role: employee.role,
+        levels: employee.levels
       }),
     });
     if (!response.ok) {
-      if (response.status === 401) {
-        auth.clearAuth();
-        window.location.href = "/login";
-        throw new Error("Unauthorized");
-      }
       throw new Error("Failed to add employee");
     }
     return await response.json();
   },
 
   // PUT /api/employees/:empId - Update employee details (name, role)
-  async updateEmployee(empId: string, updates: { name?: string; role?: string }): Promise<Store> {
+  async updateEmployee(empId: string, updates: { name?: string; role?: string }): Promise<Department> {
     const response = await fetch(`${API_BASE}/employees/${empId}`, {
       method: "PUT",
-      headers: getHeaders(),
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(updates),
     });
     if (!response.ok) {
-      if (response.status === 401) {
-        auth.clearAuth();
-        window.location.href = "/login";
-        throw new Error("Unauthorized");
-      }
       throw new Error("Failed to update employee");
     }
     return await response.json();
   },
 
   // DELETE /api/employees/:empId - Remove employee
-  async deleteEmployee(empId: string): Promise<Store> {
+  async deleteEmployee(empId: string): Promise<Department> {
     const response = await fetch(`${API_BASE}/employees/${empId}`, {
       method: "DELETE",
-      headers: getHeaders(),
+      headers: { "Content-Type": "application/json" },
     });
     if (!response.ok) {
-      if (response.status === 401) {
-        auth.clearAuth();
-        window.location.href = "/login";
-        throw new Error("Unauthorized");
-      }
       throw new Error("Failed to delete employee");
     }
     return await response.json();
   },
 
   // PUT /api/skills/level - Update skill level for an employee
-  async updateSkillLevel(empId: string, skillName: string, level: Level): Promise<Store> {
-    const response = await fetch(`${API_BASE}/employees/${empId}/skills/${encodeURIComponent(skillName)}`, {
+  async updateSkillLevel(empId: string, skillName: string, level: Level): Promise<Department> {
+    const response = await fetch(`${API_BASE}/skills/level`, {
       method: "PUT",
-      headers: getHeaders(),
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ 
         employeeId: empId, 
         skillName, 
@@ -153,83 +124,62 @@ const apiService = {
       }),
     });
     if (!response.ok) {
-      if (response.status === 401) {
-        auth.clearAuth();
-        window.location.href = "/login";
-        throw new Error("Unauthorized");
-      }
       throw new Error("Failed to update skill level");
     }
     return await response.json();
   },
 
   // POST /api/skills - Add new skill to department
-  async addSkill(deptId: string, skillName: string): Promise<Store> {
-    const response = await fetch(`${API_BASE}/departments/${deptId}/skills`, {
+  async addSkill(deptId: string, skillName: string): Promise<Department> {
+    const response = await fetch(`${API_BASE}/skills`, {
       method: "POST",
-      headers: getHeaders(),
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ 
         departmentId: deptId, 
         name: skillName 
       }),
     });
     if (!response.ok) {
-      if (response.status === 401) {
-        auth.clearAuth();
-        window.location.href = "/login";
-        throw new Error("Unauthorized");
-      }
       throw new Error("Failed to add skill");
     }
     return await response.json();
   },
 
   // DELETE /api/skills - Remove skill from department
-  async deleteSkill(deptId: string, skillName: string): Promise<Store> {
-    const response = await fetch(`${API_BASE}/departments/${deptId}/skills/${encodeURIComponent(skillName)}`, {
+  async deleteSkill(deptId: string, skillName: string): Promise<Department> {
+    const response = await fetch(`${API_BASE}/skills`, {
       method: "DELETE",
-      headers: getHeaders(),
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ 
         departmentId: deptId, 
         name: skillName 
       }),
     });
     if (!response.ok) {
-      if (response.status === 401) {
-        auth.clearAuth();
-        window.location.href = "/login";
-        throw new Error("Unauthorized");
-      }
       throw new Error("Failed to delete skill");
     }
     return await response.json();
   },
 
   // PUT /api/departments/:deptId - Update department target level
-  async updateTargetLevel(deptId: string, targetLevel: number): Promise<Store> {
+  async updateTargetLevel(deptId: string, targetLevel: number): Promise<Department> {
     const response = await fetch(`${API_BASE}/departments/${deptId}`, {
       method: "PUT",
-      headers: getHeaders(),
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ targetLevel }),
     });
     if (!response.ok) {
-      if (response.status === 401) {
-        auth.clearAuth();
-        window.location.href = "/login";
-        throw new Error("Unauthorized");
-      }
       throw new Error("Failed to update target level");
     }
     return await response.json();
   },
 
-  // TODO: Replace with Flask API endpoint
   // POST /api/import - Import entire dataset
   async importData(data: Store): Promise<void> {
     try {
       await fetch(`${API_BASE}/import`, {
         method: "POST",
-        headers: getHeaders(),
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
     } catch (error) {
@@ -241,36 +191,26 @@ const apiService = {
   async addDepartment(department: Omit<Department, "id">): Promise<Department> {
     const response = await fetch(`${API_BASE}/departments`, {
       method: "POST",
-      headers: getHeaders(),
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name: department.name,
         targetLevel: department.targetLevel
       }),
     });
     if (!response.ok) {
-      if (response.status === 401) {
-        auth.clearAuth();
-        window.location.href = "/login";
-        throw new Error("Unauthorized");
-      }
       throw new Error("Failed to add department");
     }
     return await response.json();
   },
 
   // PUT /api/departments/:deptId - Update department details
-  async updateDepartment(deptId: string, updates: { name?: string }): Promise<Store> {
+  async updateDepartment(deptId: string, updates: { name?: string }): Promise<Department> {
     const response = await fetch(`${API_BASE}/departments/${deptId}`, {
       method: "PUT",
-      headers: getHeaders(),
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(updates),
     });
     if (!response.ok) {
-      if (response.status === 401) {
-        auth.clearAuth();
-        window.location.href = "/login";
-        throw new Error("Unauthorized");
-      }
       throw new Error("Failed to update department");
     }
     return await response.json();
@@ -280,14 +220,9 @@ const apiService = {
   async deleteDepartment(deptId: string): Promise<void> {
     const response = await fetch(`${API_BASE}/departments/${deptId}`, {
       method: "DELETE",
-      headers: getHeaders(),
+      headers: { "Content-Type": "application/json" },
     });
     if (!response.ok) {
-      if (response.status === 401) {
-        auth.clearAuth();
-        window.location.href = "/login";
-        throw new Error("Unauthorized");
-      }
       throw new Error("Failed to delete department");
     }
   },
@@ -483,7 +418,6 @@ function LevelCell({ value, onChange }: { value: Level; onChange: (v: Level) => 
 // ----------------------------- Main Component
 
 const Index = () => {
-  const navigate = useNavigate();
   const { toast } = useToast();
   
   const [store, setStore] = useState<Store>(() => {
@@ -604,65 +538,116 @@ const Index = () => {
   }
 
   async function addEmployee() {
-  const name = empDraft.name.trim();
-  if (!name) return;
-
-  const levels: Record<string, Level> = {};
-  dept.skills.forEach((s) => (levels[s] = 1));
-
-  try {
-    // Get the updated department from backend
-    const updatedDept = await apiService.addEmployee(dept.id, {
-      name,
-      role: empDraft.role.trim(),
-      levels,
-    });
-
-    // ✅ Update just this department in the store
+    const name = empDraft.name.trim();
+    if (!name) return;
     
-
-    // Reset form and close dialog
-    setEmpDraft({ name: "", role: "" });
-    setAddEmpOpen(false);
-  } catch (error) {
-    console.error("Failed to add employee:", error);
+    const levels: Record<string, Level> = {};
+    dept.skills.forEach((s) => (levels[s] = 1));
+    
+    try {
+      const updatedDept = await apiService.addEmployee(dept.id, {
+        name,
+        role: empDraft.role.trim(),
+        levels,
+      });
+      
+      // Update the specific department in the store
+      setStore((prev) => ({
+        ...prev,
+        departments: prev.departments.map((d) =>
+          d.id === updatedDept.id ? updatedDept : d
+        ),
+      }));
+      
+      setEmpDraft({ name: "", role: "" });
+      setAddEmpOpen(false);
+    } catch (error) {
+      console.error("Failed to add employee:", error);
+      toast({
+        title: "Error",
+        description: "Failed to add employee. Please try again.",
+        variant: "destructive",
+      });
+    }
   }
-}
-
 
   async function removeEmployee(id: string) {
     try {
-      const updatedStore = await apiService.deleteEmployee(id);
-      setStore(updatedStore);
+      const updatedDept = await apiService.deleteEmployee(id);
+      
+      setStore((prev) => ({
+        ...prev,
+        departments: prev.departments.map((d) =>
+          d.id === updatedDept.id ? updatedDept : d
+        ),
+      }));
     } catch (error) {
       console.error("Failed to delete employee:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete employee. Please try again.",
+        variant: "destructive",
+      });
     }
   }
 
   async function renameEmployee(id: string, name: string) {
     try {
-      const updatedStore = await apiService.updateEmployee(id, { name });
-      setStore(updatedStore);
+      const updatedDept = await apiService.updateEmployee(id, { name });
+      
+      setStore((prev) => ({
+        ...prev,
+        departments: prev.departments.map((d) =>
+          d.id === updatedDept.id ? updatedDept : d
+        ),
+      }));
     } catch (error) {
       console.error("Failed to update employee:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update employee. Please try again.",
+        variant: "destructive",
+      });
     }
   }
 
   async function setRole(id: string, role: string) {
     try {
-      const updatedStore = await apiService.updateEmployee(id, { role });
-      setStore(updatedStore);
+      const updatedDept = await apiService.updateEmployee(id, { role });
+      
+      setStore((prev) => ({
+        ...prev,
+        departments: prev.departments.map((d) =>
+          d.id === updatedDept.id ? updatedDept : d
+        ),
+      }));
     } catch (error) {
       console.error("Failed to update employee role:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update role. Please try again.",
+        variant: "destructive",
+      });
     }
   }
 
   async function setLevel(empId: string, skill: string, lv: Level) {
     try {
-      const updatedStore = await apiService.updateSkillLevel(empId, skill, lv);
-      setStore(updatedStore);
+      const updatedDept = await apiService.updateSkillLevel(empId, skill, lv);
+      
+      setStore((prev) => ({
+        ...prev,
+        departments: prev.departments.map((d) =>
+          d.id === updatedDept.id ? updatedDept : d
+        ),
+      }));
     } catch (error) {
       console.error("Failed to update skill level:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update skill level. Please try again.",
+        variant: "destructive",
+      });
     }
   }
 
@@ -671,29 +656,63 @@ const Index = () => {
     if (!s) return;
     
     try {
-      const updatedStore = await apiService.addSkill(dept.id, s);
-      setStore(updatedStore);
+      const updatedDept = await apiService.addSkill(dept.id, s);
+      
+      setStore((prev) => ({
+        ...prev,
+        departments: prev.departments.map((d) =>
+          d.id === updatedDept.id ? updatedDept : d
+        ),
+      }));
+      
       setNewSkill("");
     } catch (error) {
       console.error("Failed to add skill:", error);
+      toast({
+        title: "Error",
+        description: "Failed to add skill. Please try again.",
+        variant: "destructive",
+      });
     }
   }
 
   async function removeSkill(skill: string) {
     try {
-      const updatedStore = await apiService.deleteSkill(dept.id, skill);
-      setStore(updatedStore);
+      const updatedDept = await apiService.deleteSkill(dept.id, skill);
+      
+      setStore((prev) => ({
+        ...prev,
+        departments: prev.departments.map((d) =>
+          d.id === updatedDept.id ? updatedDept : d
+        ),
+      }));
     } catch (error) {
       console.error("Failed to delete skill:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete skill. Please try again.",
+        variant: "destructive",
+      });
     }
   }
 
   async function updateTargetLevel(targetLevel: number) {
     try {
-      const updatedStore = await apiService.updateTargetLevel(dept.id, targetLevel);
-      setStore(updatedStore);
+      const updatedDept = await apiService.updateTargetLevel(dept.id, targetLevel);
+      
+      setStore((prev) => ({
+        ...prev,
+        departments: prev.departments.map((d) =>
+          d.id === updatedDept.id ? updatedDept : d
+        ),
+      }));
     } catch (error) {
       console.error("Failed to update target level:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update target level. Please try again.",
+        variant: "destructive",
+      });
     }
   }
 
@@ -761,13 +780,25 @@ const Index = () => {
     if (!name) return;
 
     try {
-      const updatedStore = await apiService.updateDepartment(editDeptId, { name });
-      setStore(updatedStore);
+      const updatedDept = await apiService.updateDepartment(editDeptId, { name });
+      
+      setStore((prev) => ({
+        ...prev,
+        departments: prev.departments.map((d) =>
+          d.id === updatedDept.id ? updatedDept : d
+        ),
+      }));
+      
       setEditDeptOpen(false);
       setEditDeptId(null);
       setEditDeptName("");
     } catch (error) {
       console.error("Failed to update department:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update department. Please try again.",
+        variant: "destructive",
+      });
     }
   }
 
@@ -789,6 +820,11 @@ const Index = () => {
       }
     } catch (error) {
       console.error("Failed to delete department:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete department. Please try again.",
+        variant: "destructive",
+      });
     }
   }
 
@@ -798,15 +834,6 @@ const Index = () => {
     setEditDeptId(deptId);
     setEditDeptName(d.name);
     setEditDeptOpen(true);
-  }
-
-  function handleLogout() {
-    auth.clearAuth();
-    toast({
-      title: "Logged out",
-      description: "You have been successfully logged out.",
-    });
-    navigate("/login");
   }
 
   // Default active tab on mount
@@ -832,14 +859,12 @@ const Index = () => {
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Unimarks Skills & Training Matrix</h1>
           <p className="text-sm text-muted-foreground">
             Track department capabilities and employee skills across the organization
-            {auth.getUser() && <span className="ml-2 font-medium">• Logged in as {auth.getUser()}</span>}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" className="gap-2" onClick={exportCSV}><Download className="h-4 w-4" />CSV</Button>
           <Button variant="outline" className="gap-2" onClick={exportJSON}><Save className="h-4 w-4" />Save JSON</Button>
-          <Button variant="outline" className="gap-2" onClick={() => setImportOpen(true)}><Upload className="h-4 w-4" />Import</Button>
-          <Button variant="destructive" className="gap-2" onClick={handleLogout}><LogOut className="h-4 w-4" />Logout</Button>
+          <Button variant="secondary" className="gap-2" onClick={() => setImportOpen(true)}><Upload className="h-4 w-4" />Import</Button>
         </div>
       </header>
 
