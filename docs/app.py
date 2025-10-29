@@ -28,7 +28,6 @@ from functools import wraps
 from datetime import datetime, timedelta ,timezone
 import uuid
 import jwt
-load_dotenv()
 app = Flask(__name__)
 CORS(app)  # Enable CORS for React frontend
 
@@ -465,13 +464,10 @@ def delete_employee(emp_id):
 @app.route('/api/departments/<string:dept_id>/employees', methods=['POST'])
 @require_auth
 def add_employee(dept_id):
-    # print(f"✅ Received request to add employee in department {dept_id}")
-    # print(f"Request JSON: {request.get_json()}")
     """Add a new employee to a department"""
     data = request.get_json()
     name = data.get("name")
     role = data.get("role")
-    levels = data.get("levels", {})
 
     if not name:
         return jsonify({"error": "Employee name required"}), 400
@@ -483,28 +479,35 @@ def add_employee(dept_id):
     try:
         cursor = connection.cursor(dictionary=True)
         emp_id = str(uuid.uuid4())
-        cursor.execute(
-            """
+
+        cursor.execute("""
             INSERT INTO employees (id, name, role, department_id)
             VALUES (%s, %s, %s, %s)
-            """,
-            (emp_id, name, role, dept_id)
-        )
+        """, (emp_id, name, role, dept_id))
+
+        # Initialize all skills at level 1 for new employee
+        cursor.execute("SELECT id FROM skills WHERE department_id = %s", (dept_id,))
+        for skill in cursor.fetchall():
+            cursor.execute("""
+                INSERT INTO skill_levels (employee_id, skill_id, level_value)
+                VALUES (%s, %s, 1)
+            """, (emp_id, skill['id']))
 
         connection.commit()
-        print(f"✅ Inserted employee {name} ({emp_id}) into DB")
+
+        # Fetch updated department data
+        dept_data = format_department_response(dept_id, connection)
+
         cursor.close()
         connection.close()
-        return jsonify({"id": emp_id, "name": name, "role": role, "levels": levels}), 201
+        return jsonify(dept_data), 201
+
     except Error as e:
-        print(f"❌ Database error: {e}")
         connection.rollback()
         connection.close()
-
+        print(f"❌ Database error: {e}")
         return jsonify({"error": str(e)}), 500
 
-    finally:
-        connection.close()
 
 # ===================== SKILL ENDPOINTS =====================
 
