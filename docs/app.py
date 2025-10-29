@@ -151,37 +151,41 @@ def get_departments():
         return jsonify({'error': str(e)}), 500
 
 
+from uuid import uuid4
+
 @app.route('/api/departments', methods=['POST'])
 def create_department():
     """Create new department"""
     data = request.json
     name = data.get('name', '').strip()
     target_level = data.get('targetLevel', 3)
-    
+
     if not name:
         return jsonify({'error': 'Department name is required'}), 400
-    
+
     connection = get_db_connection()
     if not connection:
         return jsonify({'error': 'Database connection failed'}), 500
-    
+
     try:
-        cursor = connection.cursor()
-        
+        cursor = connection.cursor(dictionary=True)
+        dept_id = str(uuid4())
+
         cursor.execute("""
             INSERT INTO departments (id, name, target_level)
             VALUES (%s, %s, %s)
-        """, (name, target_level))
-        
-        connection.commit()
-        cursor.close()
+        """, (dept_id, name, target_level))
 
-        # Return complete department object
-        dept_data = format_department_response(connection)
+        connection.commit()
+
+        # Return the new department data
+        dept_data = format_department_response(dept_id, connection)
+
+        cursor.close()
         connection.close()
-        
+
         return jsonify(dept_data), 201
-        
+
     except Error as e:
         connection.rollback()
         connection.close()
@@ -193,47 +197,48 @@ def update_department(dept_id):
     data = request.json
     name = data.get('name')
     target_level = data.get('targetLevel')
-    
+
     connection = get_db_connection()
     if not connection:
         return jsonify({'error': 'Database connection failed'}), 500
-    
+
     try:
         cursor = connection.cursor()
-        
-        # Build dynamic update query
+
         updates = []
         params = []
-        
+
         if name is not None:
             updates.append("name = %s")
             params.append(name.strip())
-        
+
         if target_level is not None:
             updates.append("target_level = %s")
             params.append(target_level)
-        
+
         if not updates:
             return jsonify({'error': 'No fields to update'}), 400
-        
+
         updates.append("updated_at = NOW()")
         params.append(dept_id)
-        
+
         query = f"UPDATE departments SET {', '.join(updates)} WHERE id = %s"
         cursor.execute(query, params)
         connection.commit()
-        cursor.close()
 
-        # Return updated department
+        # ✅ Don't close cursor before formatting
         dept_data = format_department_response(dept_id, connection)
+
+        cursor.close()
         connection.close()
-        
+
         return jsonify(dept_data), 200
-        
+
     except Error as e:
         connection.rollback()
         connection.close()
         return jsonify({'error': str(e)}), 500
+
 
 
 @app.route('/api/departments/<dept_id>', methods=['DELETE'])
